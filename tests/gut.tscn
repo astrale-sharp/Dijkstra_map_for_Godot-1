@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://bandohsx0la8n"]
+
+[ext_resource type="Script" path="res://addons/gut/gut.gd" id="1_kj448"]
+
+[node name="Gut" type="Node"]
+script = ExtResource("1_kj448")
