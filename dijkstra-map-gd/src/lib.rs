@@ -19,6 +19,7 @@
 use dijkstra_map::{Cost, PointId, Read, TerrainType, Weight};
 use fnv::FnvHashMap;
 use fnv::FnvHashSet;
+use godot::obj::EngineEnum;
 use godot::prelude::*;
 
 struct MyExtension;
@@ -38,7 +39,7 @@ const FAILED: i64 = 1;
 /// [connect_points](#func-connect_points),
 /// [add_square_grid](#func-add_square_grid)...
 /// 2. Call [recalculate](#func-recalculate) on it.
-///   
+///
 ///     `DijkstraMap` does not calculate the paths automatically. It has
 /// to be triggered to execute Dijkstra's algorithm and calculate all
 /// the paths. [recalculate](#func-recalculate) support a variety of
@@ -127,7 +128,7 @@ impl IRefCounted for DijkstraMap {
     /// var dijkstra_map = DijkstraMap.new()
     /// dijkstra_map.clear()
     /// ```
-    fn init(sprite: Base<RefCounted>) -> Self {
+    fn init(_sprite: Base<RefCounted>) -> Self {
         Self {
             dijkstra: dijkstra_map::DijkstraMap::new(),
         }
@@ -619,49 +620,6 @@ impl DijkstraMap {
             INITIAL_COSTS,
         ];
 
-        fn display_type(t: VariantType) -> &'static str {
-            match t {
-                VariantType::Nil => "nil",
-                VariantType::Bool => "bool",
-                VariantType::Int => "integer",
-                VariantType::Float => "float",
-                VariantType::String => "string",
-                VariantType::Vector2 => "Vector2",
-                VariantType::Rect2 => "Rect2",
-                VariantType::Vector3 => "Vector3",
-                VariantType::Transform2D => "Transform2D",
-                VariantType::Plane => "Plane",
-                VariantType::Quaternion => "Quat",
-                VariantType::Aabb => "Aabb",
-                VariantType::Basis => "Basis",
-                VariantType::Transform3D => "Transform3D",
-                VariantType::Color => "Color",
-                VariantType::NodePath => "NodePath",
-                VariantType::Rid => "Rid",
-                VariantType::Object => "Object",
-                VariantType::Dictionary => "Dictionary",
-                VariantType::Array => "array",
-                VariantType::PackedByteArray => "array of bytes",
-                VariantType::PackedInt32Array => "array of integers",
-                VariantType::PackedInt64Array => "array of integers",
-                VariantType::PackedFloat32Array => "array of floats",
-                VariantType::PackedFloat64Array => "array of floats",
-                VariantType::PackedStringArray => "array of strings",
-                VariantType::PackedVector2Array => "array of Vector2",
-                VariantType::PackedVector3Array => "array of Vector3",
-                VariantType::PackedColorArray => "array of Color",
-                VariantType::Vector2i => "Vector2i",
-                VariantType::Rect2i => "Rect2i",
-                VariantType::Vector3i => "Vector3i",
-                VariantType::Vector4 => "Vector4",
-                VariantType::Vector4i => "Vector4i",
-                VariantType::Projection => "Projection",
-                VariantType::StringName => "StringName",
-                VariantType::Callable => "Callable",
-                VariantType::Signal => "Signal",
-            }
-        }
-
         /// Helper function for type warnings
         ///
         /// Ensure the style of warning reporting is consistent.
@@ -671,8 +629,8 @@ impl DijkstraMap {
                 file!(),
                 line,
                 object,
-                display_type(expected),
-                display_type(got)
+                expected.godot_name(),
+                got.godot_name()
             );
         }
 
@@ -690,10 +648,10 @@ impl DijkstraMap {
         // get origin points
         let mut res_origins = Vec::<PointId>::new();
         match origin.get_type() {
-            godot::builtin::VariantType::Int => {
+            godot::builtin::VariantType::INT => {
                 res_origins.push((origin.to::<i64>() as i32).into())
             }
-            godot::builtin::VariantType::PackedInt32Array => {
+            godot::builtin::VariantType::PACKED_INT32_ARRAY => {
                 res_origins = origin
                     .to::<godot::builtin::PackedInt32Array>()
                     .as_slice()
@@ -701,13 +659,13 @@ impl DijkstraMap {
                     .map(|&x| x.into())
                     .collect();
             }
-            godot::builtin::VariantType::Array => {
+            godot::builtin::VariantType::ARRAY => {
                 for i in origin.to::<godot::builtin::VariantArray>().iter_shared() {
                     match i.try_to::<i64>() {
                         Ok(intval) => res_origins.push(PointId(intval as i32)),
                         Err(_) => type_warning(
                             "element of 'origin'",
-                            VariantType::Int,
+                            VariantType::INT,
                             i.get_type(),
                             line!(),
                         ),
@@ -737,7 +695,7 @@ impl DijkstraMap {
                     Err(_) => {
                         type_warning(
                             "'input_is_destination' key",
-                            VariantType::Bool,
+                            VariantType::BOOL,
                             value.get_type(),
                             line!(),
                         );
@@ -757,7 +715,7 @@ impl DijkstraMap {
                     Err(_) => {
                         type_warning(
                             "'max_cost' key",
-                            VariantType::Float,
+                            VariantType::FLOAT,
                             value.get_type(),
                             line!(),
                         );
@@ -774,7 +732,7 @@ impl DijkstraMap {
                 let mut initial_costs = Vec::<Cost>::new();
                 let value = optional_params.get(INITIAL_COSTS).unwrap();
                 match value.get_type() {
-                    godot::builtin::VariantType::PackedFloat32Array => {
+                    godot::builtin::VariantType::PACKED_FLOAT32_ARRAY => {
                         for f in value
                             .to::<godot::builtin::PackedFloat32Array>()
                             .as_slice()
@@ -783,14 +741,14 @@ impl DijkstraMap {
                             initial_costs.push(Cost(*f))
                         }
                     }
-                    godot::builtin::VariantType::Array => {
+                    godot::builtin::VariantType::ARRAY => {
                         for f in value.to::<godot::builtin::VariantArray>().iter_shared() {
                             initial_costs.push(match f.try_to::<f64>() {
                                 Ok(fval) => Cost(fval as f32),
                                 Err(_) => {
                                     type_warning(
                                         "element of 'initial_costs'",
-                                        VariantType::Float,
+                                        VariantType::FLOAT,
                                         f.get_type(),
                                         line!(),
                                     );
@@ -801,7 +759,7 @@ impl DijkstraMap {
                     }
                     incorrect_type => type_warning(
                         "'initial_costs' key",
-                        VariantType::PackedFloat32Array,
+                        VariantType::PACKED_FLOAT32_ARRAY,
                         incorrect_type,
                         line!(),
                     ),
@@ -825,7 +783,7 @@ impl DijkstraMap {
                     } else {
                         type_warning(
                             "key in 'terrain_weights'",
-                            VariantType::Int,
+                            VariantType::INT,
                             key.get_type(),
                             line!(),
                         );
@@ -834,7 +792,7 @@ impl DijkstraMap {
             } else {
                 type_warning(
                     "'terrain_weights' key",
-                    VariantType::PackedInt32Array,
+                    VariantType::PACKED_INT32_ARRAY,
                     value.get_type(),
                     line!(),
                 );
@@ -848,16 +806,16 @@ impl DijkstraMap {
         let termination_points = if optional_params.contains_key(TERMINATION_POINTS) {
             let value = optional_params.get(TERMINATION_POINTS).unwrap();
             match value.get_type() {
-                godot::builtin::VariantType::Int => {
+                godot::builtin::VariantType::INT => {
                     std::iter::once(PointId(value.to::<i64>() as i32)).collect()
                 }
-                godot::builtin::VariantType::PackedInt32Array => value
+                godot::builtin::VariantType::PACKED_INT32_ARRAY => value
                     .to::<godot::builtin::PackedInt32Array>()
                     .as_slice()
                     .iter()
                     .map(|&x| PointId::from(x))
                     .collect(),
-                godot::builtin::VariantType::Array => value
+                godot::builtin::VariantType::ARRAY => value
                     .to::<godot::builtin::VariantArray>()
                     .iter_shared()
                     .filter_map(|i| {
@@ -865,7 +823,7 @@ impl DijkstraMap {
                         if int.is_err() {
                             type_warning(
                                 "value in 'termination_points'",
-                                VariantType::Int,
+                                VariantType::INT,
                                 i.get_type(),
                                 line!(),
                             );
@@ -877,7 +835,7 @@ impl DijkstraMap {
                 incorrect_type => {
                     type_warning(
                         "'termination_points' key",
-                        VariantType::PackedInt32Array,
+                        VariantType::PACKED_INT32_ARRAY,
                         incorrect_type,
                         line!(),
                     );
@@ -985,7 +943,7 @@ impl DijkstraMap {
         for (&point, info) in self.dijkstra.get_direction_and_cost_map().iter() {
             let point: i32 = point.into();
             let cost: f32 = info.cost.into();
-            dict.insert(point, cost);
+            let _ = dict.insert(point, cost);
         }
         dict
     }
@@ -1018,7 +976,7 @@ impl DijkstraMap {
         for (&point, info) in self.dijkstra.get_direction_and_cost_map().iter() {
             let point: i32 = point.into();
             let direction: i32 = info.direction.into();
-            dict.insert(point, direction);
+            let _ = dict.insert(point, direction);
         }
         dict
     }
@@ -1120,7 +1078,7 @@ impl DijkstraMap {
             )
             .iter()
         {
-            dict.insert(
+            let _ = dict.insert(
                 Vector2::new(k.x as f32, k.y as f32).to_variant(),
                 i32::from(v),
             );
@@ -1191,7 +1149,7 @@ impl DijkstraMap {
             )
             .iter()
         {
-            dict.insert(
+            let _ = dict.insert(
                 Vector2::new(k.x as f32, k.y as f32).to_variant(),
                 i32::from(v),
             );
