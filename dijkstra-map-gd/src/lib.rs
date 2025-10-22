@@ -25,7 +25,19 @@ use godot::prelude::*;
 struct MyExtension;
 
 #[gdextension]
-unsafe impl ExtensionLibrary for MyExtension {}
+unsafe impl ExtensionLibrary for MyExtension {
+    fn override_wasm_binary() -> Option<&'static str> {
+        // Tell Godot which wasm file to load depending on the build features & profile.
+        let threading = if cfg!(feature = "nothreads") { "nothreads" } else { "threads" };
+        let profile = if cfg!(debug_assertions) { "debug" } else { "release" };
+        Some(match (threading, profile) {
+            ("threads", "debug") =>     "dijkstra_map_gd.web_threads.debug.wasm",
+            ("threads", "release") =>   "dijkstra_map_gd.web_threads.release.wasm",
+            ("nothreads", "debug") =>   "dijkstra_map_gd.web_nothreads.debug.wasm",
+            _ =>                        "dijkstra_map_gd.web_nothreads.release.wasm"
+        })
+    }
+}
 
 /// Integer representing success in gdscript
 const OK: i64 = 0;
@@ -620,6 +632,21 @@ impl DijkstraMap {
             INITIAL_COSTS,
         ];
 
+        // NOTE: godot_name() was deprecated in 0.3.5, see:
+        // https://docs.rs/godot/0.3.5/godot/obj/trait.EngineEnum.html#tymethod.godot_name
+        // Now we must find the mapping of type enums to their godot names.
+        // We could use a hashmap for performance if needed, but currently we only need to look up
+        // names in case of a type mismatch, which should be very rare (and indicates a bigger
+        // problem in the code that should be fixed).
+        fn variant_type_to_godot_name(vt: VariantType) -> &'static str {
+            for constant in VariantType::all_constants() {
+                if constant.value().ord() == vt.ord() {
+                    return constant.godot_name()
+                }
+            }
+            "Unknown VariantType"
+        }
+
         /// Helper function for type warnings
         ///
         /// Ensure the style of warning reporting is consistent.
@@ -629,8 +656,8 @@ impl DijkstraMap {
                 file!(),
                 line,
                 object,
-                expected.godot_name(),
-                got.godot_name()
+                variant_type_to_godot_name(expected),
+                variant_type_to_godot_name(got)
             );
         }
 
@@ -660,15 +687,21 @@ impl DijkstraMap {
                     .collect();
             }
             godot::builtin::VariantType::ARRAY => {
-                for i in origin.to::<godot::builtin::VariantArray>().iter_shared() {
-                    match i.try_to::<i64>() {
-                        Ok(intval) => res_origins.push(PointId(intval as i32)),
-                        Err(_) => type_warning(
-                            "element of 'origin'",
-                            VariantType::INT,
-                            i.get_type(),
-                            line!(),
-                        ),
+                if let Ok(int_arr) = origin.try_to::<godot::builtin::Array<i32>>() {      
+                    for i in int_arr.iter_shared() {
+                        res_origins.push(PointId(i as i32))
+                    }
+                }else{
+                    for i in origin.to::<godot::builtin::VariantArray>().iter_shared() {
+                        match i.try_to::<i64>() {
+                            Ok(intval) => res_origins.push(PointId(intval as i32)),
+                            Err(_) => type_warning(
+                                "element of 'origin'",
+                                VariantType::INT,
+                                i.get_type(),
+                                line!(),
+                            ),
+                        }
                     }
                 }
             }

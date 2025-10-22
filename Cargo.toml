@@ -4,4 +4,3 @@ default-members = ["dijkstra-map", "dijkstra-map-gd"]
 
 [profile.release]
 lto = true
-panic = "abort"

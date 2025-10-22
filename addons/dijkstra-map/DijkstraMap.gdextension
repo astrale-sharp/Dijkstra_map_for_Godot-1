@@ -1,0 +1,18 @@
+[configuration]
+entry_symbol = "gdext_rust_init"
+compatibility_minimum = 4.5.1
+reloadable = true
+
+[libraries]
+linux.debug.x86_64 =        "res://addons/dijkstra-map/dijkstra_map_library/bin/dijkstra_map_gd.linux.debug.so"
+linux.release.x86_64 =      "res://addons/dijkstra-map/dijkstra_map_library/bin/dijkstra_map_gd.linux.release.so"
+windows.debug.x86_64 =      "res://addons/dijkstra-map/dijkstra_map_library/bin/dijkstra_map_gd.windows.debug.dll"
+windows.release.x86_64 =    "res://addons/dijkstra-map/dijkstra_map_library/bin/dijkstra_map_gd.windows.release.dll"
+macos.debug =               "res://addons/dijkstra-map/dijkstra_map_library/bin/dijkstra_map_gd.mac.debug.dylib"
+macos.release =             "res://addons/dijkstra-map/dijkstra_map_library/bin/dijkstra_map_gd.mac.release.dylib"
+macos.debug.arm64 =         "res://addons/dijkstra-map/dijkstra_map_library/bin/dijkstra_map_gd.mac_arm.debug.dylib"
+macos.release.arm64 =       "res://addons/dijkstra-map/dijkstra_map_library/bin/dijkstra_map_gd.mac_arm.release.dylib"
+web.debug.threads.wasm32 =  "res://addons/dijkstra-map/dijkstra_map_library/bin/dijkstra_map_gd.web_threads.debug.wasm"
+web.release.threads.wasm32 ="res://addons/dijkstra-map/dijkstra_map_library/bin/dijkstra_map_gd.web_threads.release.wasm"
+web.debug.wasm32 =          "res://addons/dijkstra-map/dijkstra_map_library/bin/dijkstra_map_gd.web_nothreads.debug.wasm"
+web.release.wasm32 =        "res://addons/dijkstra-map/dijkstra_map_library/bin/dijkstra_map_gd.web_nothreads.release.wasm"
