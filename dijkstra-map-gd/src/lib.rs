@@ -19,7 +19,6 @@
 use dijkstra_map::{Cost, PointId, Read, TerrainType, Weight};
 use fnv::FnvHashMap;
 use fnv::FnvHashSet;
-use godot::obj::EngineEnum;
 use godot::prelude::*;
 
 struct MyExtension;
@@ -96,20 +95,13 @@ fn result_to_int<O, E>(res: Result<O, E>) -> i64 {
 /// # Return
 ///
 /// `(x_offset, y_offset, width, height)`
-fn variant_to_width_and_height(bounds: Variant) -> Option<(usize, usize, usize, usize)> {
-    bounds
-        .try_to()
-        .map(|rect: Rect2| {
-            {
-                (
-                    rect.position.x as usize,
-                    rect.position.y as usize,
-                    rect.size.x as usize,
-                    rect.size.y as usize,
-                )
-            }
-        })
-        .ok()
+fn rect2_to_width_and_height(bounds: Rect2) -> (usize, usize, usize, usize) {
+    (
+        bounds.position.x as usize,
+        bounds.position.y as usize,
+        bounds.size.x as usize,
+        bounds.size.y as usize,
+    )
 }
 
 #[godot_api]
@@ -213,13 +205,7 @@ impl DijkstraMap {
     /// ```
     // TODO opt args?
     #[func]
-    pub fn add_point(
-        &mut self,
-        point_id: i32,
-        //TODO opt
-        terrain_type: i32,
-    ) -> i64 {
-        // let terrain_type: TerrainType = terrain_type.unwrap_or(-1).into();
+    pub fn add_point(&mut self, point_id: i32, #[opt(default = -1)] terrain_type: i32) -> i64 {
         let res = self
             .dijkstra
             .add_point(point_id, dijkstra_map::TerrainType::Terrain(terrain_type));
@@ -250,10 +236,8 @@ impl DijkstraMap {
     pub fn set_terrain_for_point(
         &mut self,
         point_id: i32,
-        // TODO opt
-        terrain_id: i32, // terrain_id: Option<i32>
+        #[opt(default = -1)] terrain_id: i32, // terrain_id: Option<i32>
     ) -> i64 {
-        // let terrain_id = terrain_id.unwrap_or(-1);
         let terrain: TerrainType = terrain_id.into();
         let res = self.dijkstra.set_terrain_for_point(point_id, terrain);
         result_to_int(res)
@@ -416,17 +400,13 @@ impl DijkstraMap {
         source: i32,
         target: i32,
         // todo opt
-        weight: f32,
-        bidirectional: bool,
-        // #[opt] weight: Option<f32>,
-        // #[opt] bidirectional: Option<bool>,
+        #[opt(default = 1.0)] weight: f32,
+        #[opt(default = true)] bidirectional: bool,
     ) -> i64 {
-        result_to_int(self.dijkstra.connect_points(
-            source,
-            target,
-            Some(Weight(weight)),
-            Some(bidirectional),
-        ))
+        result_to_int(
+            self.dijkstra
+                .connect_points(source, target, Weight(weight), bidirectional),
+        )
     }
 
     /// Remove a connection between the two given points.
@@ -460,13 +440,11 @@ impl DijkstraMap {
         &mut self,
         source: i32,
         target: i32,
-        bidirectional: bool,
-        // TODO opt
-        // #[opt] bidirectional: Option<bool>,
+        #[opt(default = true)] bidirectional: bool,
     ) -> i64 {
         result_to_int(
             self.dijkstra
-                .remove_connection(source, target, Some(bidirectional)),
+                .remove_connection(source, target, bidirectional),
         )
     }
 
@@ -603,9 +581,8 @@ impl DijkstraMap {
     pub fn recalculate(
         &mut self,
         origin: Variant,
-        optional_params: Dictionary,
-        //TODO opt
-        // #[opt] optional_params: Option<Dictionary>,
+        // Todo OPT
+        optional_params: VarDictionary,
     ) -> i64 {
         const TERRAIN_WEIGHT: &str = "terrain_weights";
         const TERMINATION_POINTS: &str = "termination_points";
@@ -625,16 +602,14 @@ impl DijkstraMap {
         /// Ensure the style of warning reporting is consistent.
         fn type_warning(object: &str, expected: VariantType, got: VariantType, line: u32) {
             godot_warn!(
-                "[{}:{}] {} has incorrect type : expected {}, got {}",
+                "[{}:{}] {} has incorrect type : expected {:?}, got {:?}",
                 file!(),
                 line,
                 object,
-                expected.godot_name(),
-                got.godot_name()
+                expected,
+                got
             );
         }
-
-        // let optional_params = optional_params.unwrap_or_default();
 
         // verify keys makes sense
         for k in optional_params.keys_shared().into_iter() {
@@ -660,7 +635,7 @@ impl DijkstraMap {
                     .collect();
             }
             godot::builtin::VariantType::ARRAY => {
-                for i in origin.to::<godot::builtin::VariantArray>().iter_shared() {
+                for i in origin.to::<godot::builtin::VarArray>().iter_shared() {
                     match i.try_to::<i64>() {
                         Ok(intval) => res_origins.push(PointId(intval as i32)),
                         Err(_) => type_warning(
@@ -742,7 +717,7 @@ impl DijkstraMap {
                         }
                     }
                     godot::builtin::VariantType::ARRAY => {
-                        for f in value.to::<godot::builtin::VariantArray>().iter_shared() {
+                        for f in value.to::<godot::builtin::VarArray>().iter_shared() {
                             initial_costs.push(match f.try_to::<f64>() {
                                 Ok(fval) => Cost(fval as f32),
                                 Err(_) => {
@@ -773,7 +748,7 @@ impl DijkstraMap {
         let mut terrain_weights = FnvHashMap::<TerrainType, Weight>::default();
         if optional_params.contains_key(TERRAIN_WEIGHT) {
             let value = optional_params.get(TERRAIN_WEIGHT).unwrap();
-            if let Ok(dict) = value.try_to::<godot::builtin::Dictionary>() {
+            if let Ok(dict) = value.try_to::<godot::builtin::VarDictionary>() {
                 for key in dict.keys_shared() {
                     if let Ok(id) = key.try_to::<i64>() {
                         terrain_weights.insert(
@@ -816,7 +791,7 @@ impl DijkstraMap {
                     .map(|&x| PointId::from(x))
                     .collect(),
                 godot::builtin::VariantType::ARRAY => value
-                    .to::<godot::builtin::VariantArray>()
+                    .to::<godot::builtin::VarArray>()
                     .iter_shared()
                     .filter_map(|i| {
                         let int = i.try_to::<i64>();
@@ -938,8 +913,8 @@ impl DijkstraMap {
     ///     assert_eq(computed_cost_map[id], cost_map[id])
     /// ```
     #[func]
-    pub fn get_cost_map(&mut self) -> Dictionary {
-        let mut dict = Dictionary::new();
+    pub fn get_cost_map(&mut self) -> VarDictionary {
+        let mut dict = VarDictionary::new();
         for (&point, info) in self.dijkstra.get_direction_and_cost_map().iter() {
             let point: i32 = point.into();
             let cost: f32 = info.cost.into();
@@ -971,8 +946,8 @@ impl DijkstraMap {
     ///     assert_eq(computed_direction_map[id], direction_map[id])
     /// ```
     #[func]
-    pub fn get_direction_map(&mut self) -> Dictionary {
-        let mut dict = Dictionary::new();
+    pub fn get_direction_map(&mut self) -> VarDictionary {
+        let mut dict = VarDictionary::new();
         for (&point, info) in self.dijkstra.get_direction_and_cost_map().iter() {
             let point: i32 = point.into();
             let direction: i32 = info.direction.into();
@@ -1055,17 +1030,16 @@ impl DijkstraMap {
     #[func]
     pub fn add_square_grid(
         &mut self,
-        bounds: Variant,
+        bounds: Rect2,
         terrain_type: i32,
         orthogonal_cost: f32,
         diagonal_cost: f32,
         // #[opt] terrain_type: Option<i32>,
         // #[opt] orthogonal_cost: Option<f32>,
         // #[opt] diagonal_cost: Option<f32>,
-    ) -> Dictionary {
-        let (x_offset, y_offset, width, height) =
-            variant_to_width_and_height(bounds).expect("couldn't use bounds variant");
-        let mut dict = Dictionary::new();
+    ) -> VarDictionary {
+        let (x_offset, y_offset, width, height) = rect2_to_width_and_height(bounds);
+        let mut dict = VarDictionary::new();
         for (&k, &v) in self
             .dijkstra
             .add_square_grid(
@@ -1129,22 +1103,19 @@ impl DijkstraMap {
     #[func]
     pub fn add_hexagonal_grid(
         &mut self,
-        bounds: Variant,
-        terrain_type: i32,
-        weight: f32,
-        // #[opt] terrain_type: Option<i32>,
-        // #[opt] weight: Option<f32>,
-    ) -> Dictionary {
-        let (x_offset, y_offset, width, height) =
-            variant_to_width_and_height(bounds).expect("couldn't use bounds variant");
-        let mut dict = Dictionary::new();
+        bounds: Rect2,
+        #[opt(default = -1)] terrain_type: i32,
+        #[opt(default = 1.)] weight: f32,
+    ) -> VarDictionary {
+        let (x_offset, y_offset, width, height) = rect2_to_width_and_height(bounds);
+        let mut dict = VarDictionary::new();
         for (&k, &v) in self
             .dijkstra
             .add_hexagonal_grid(
                 width,
                 height,
                 Some((x_offset, y_offset).into()),
-                Some(terrain_type).unwrap_or(-1).into(),
+                terrain_type.into(),
                 Some(weight).map(Weight),
             )
             .iter()
